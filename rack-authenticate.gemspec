@@ -21,5 +21,5 @@ Gem::Specification.new do |s|
   s.add_dependency 'ruby-hmac', '~> 0.4.0'
   s.add_dependency 'rack', '~> 1.3.5'
   s.add_development_dependency 'rspec', '~> 2.8.0.rc1'
-  s.add_development_dependency 'sinatra', '~> 1.3.1'
+  s.add_development_dependency 'rack-test', '~> 0.6.1'
 end
