@@ -8,8 +8,8 @@ Gem::Specification.new do |s|
   s.authors     = ["Myron Marston"]
   s.email       = ["myron.marston@gmail.com"]
   s.homepage    = ""
-  s.summary     = %q{TODO: Write a gem summary}
-  s.description = %q{TODO: Write a gem description}
+  s.summary     = %q{A rack middleware that authenticates requests either using basic auth or via signed HMAC.}
+  s.description = %q{A rack middleware that authenticates requests either using basic auth or via signed HMAC.}
 
   s.rubyforge_project = "rack-authenticate"
 
@@ -17,4 +17,9 @@ Gem::Specification.new do |s|
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ["lib"]
+
+  s.add_dependency 'ruby-hmac', '~> 0.4.0'
+  s.add_dependency 'rack', '~> 1.3.5'
+  s.add_development_dependency 'rspec', '~> 2.8.0.rc1'
+  s.add_development_dependency 'sinatra', '~> 1.3.1'
 end
