@@ -30,6 +30,10 @@ module Rack
           end
         end
 
+        def request
+          @request ||= ::Rack::Request.new(@env)
+        end unless method_defined?(:request)
+
         def date
           request.env['HTTP_DATE']
         end
