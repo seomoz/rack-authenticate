@@ -164,7 +164,13 @@ module Rack
         end
 
         describe "#valid?" do
-          let(:configuration) { stub(:hmac_creds => { 'abc' => '123' }, :timestamp_minute_tolerance => 10) }
+          let(:configuration) do
+            Configuration.new.tap do |c|
+              c.timestamp_minute_tolerance = 10
+              c.hmac_secret_key { |id| { 'abc' => '123' }[id] }
+            end
+          end
+
           let(:access_id)     { 'abc' }
           let(:digest)        { '2baf72a8a52e1cfec37f588c5b4e0914cb4f63b5' }
           let(:env)           { basic_env.merge('HTTP_AUTHORIZATION' => "HMAC #{access_id}:#{digest}") }
