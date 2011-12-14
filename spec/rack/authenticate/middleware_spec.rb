@@ -1,5 +1,6 @@
 require 'timecop'
 require 'rack/authenticate/middleware'
+require 'rack/authenticate/client'
 require 'rack/test'
 
 RSpec.configure do |c|
@@ -20,7 +21,13 @@ module Rack
       shared_context 'http_date' do
         let(:http_date) { "Tue, 15 Nov 1994 08:12:31 GMT" }
         let(:base_time) { Time.httpdate(http_date) }
-        around(:each) { |e| Timecop.travel(base_time, &e) }
+        around(:each) do |example|
+          if example.metadata[:no_timecop]
+            example.run
+          else
+            Timecop.travel(base_time, &example)
+          end
+        end
       end
 
       describe Auth do
@@ -310,6 +317,17 @@ module Rack
           header 'Authorization', "BASIC #{basis_auth_value('abc', 'foot')}"
           get '/'
           last_response.status.should eq(401)
+        end
+
+        it 'generates the same signature as the client', :no_timecop do
+          client = Client.new('abc', hmac_auth_creds['abc'])
+          client.request_signature_headers('post', 'http://example.org/foo', 'text/plain', "some content").each do |key, value|
+            header key, value
+          end
+
+          header 'Content-Type', 'text/plain'
+          post '/foo', "some content"
+          last_response.status.should eq(200)
         end
       end
     end
