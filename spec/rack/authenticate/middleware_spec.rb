@@ -40,6 +40,30 @@ module Rack
           "rack.input"      => StringIO.new("")
         } end
 
+        describe "#basic?" do
+          it 'returns true if given a basic auth header' do
+            basic_env['HTTP_AUTHORIZATION'] = 'BASIC abc:asfkj23asdfkj'
+            Auth.new(basic_env).should be_basic
+          end
+
+          it 'returns false if given an hmac auth header' do
+            basic_env['HTTP_AUTHORIZATION'] = 'HMAC abc:asfkj23asdfkj'
+            Auth.new(basic_env).should_not be_basic
+          end
+        end
+
+        describe "#hmac?" do
+          it 'returns true if given an hmac auth header' do
+            basic_env['HTTP_AUTHORIZATION'] = 'HMAC abc:asfkj23asdfkj'
+            Auth.new(basic_env).should be_hmac
+          end
+
+          it 'returns false if given a basic auth header' do
+            basic_env['HTTP_AUTHORIZATION'] = 'BASIC abc:asfkj23asdfkj'
+            Auth.new(basic_env).should_not be_hmac
+          end
+        end
+
         describe "#canonicalized_request" do
           it 'combines the HTTP verb, the date and the Request URI' do
             Auth.new(basic_env).canonicalized_request.split("\n").should eq([
@@ -207,17 +231,29 @@ module Rack
         include_context 'http_date'
         include Rack::Test::Methods
 
-        let(:hmac_creds) do {
+        let(:hmac_auth_creds) do {
           'abc' => '123',
           'def' => '456'
         } end
 
+        let(:basic_auth_creds) do {
+          'abc' => 'foo',
+          'def' => 'bar'
+        } end
+
+        def basis_auth_value(username, password)
+          ["#{username}:#{password}"].pack("m*")
+        end
+
         let(:app) do
-          creds = hmac_creds
+          hmac_creds = hmac_auth_creds
+          basic_creds = basic_auth_creds
+
           Rack::Builder.new do
             use Rack::ContentLength
             use Rack::Authenticate::Middleware do |config|
-              config.hmac_secret_key { |access_id| creds[access_id] }
+              config.hmac_secret_key { |access_id| hmac_creds[access_id] }
+              config.basic_auth_validation { |u, p| basic_creds[u] == p }
               config.timestamp_minute_tolerance = 30
             end
 
@@ -230,9 +266,16 @@ module Rack
           last_response.status.should eq(401)
         end
 
-        it 'responds with a 400 when the request is missing required information' do
+        it 'responds with a 400 when the request is missing required information for HMAC authorization' do
           # no date header set...
           header 'Authorization', 'HMAC abc:adfafdsfdas'
+          get '/'
+          last_response.status.should eq(400)
+        end
+
+        it 'responds with a 400 when given an unrecognized type of authorization' do
+          header 'Date', "Tue, 15 Nov 1994 08:12:31 GMT"
+          header 'Authorization', 'DIGEST abc:adfafdsfdas'
           get '/'
           last_response.status.should eq(400)
         end
@@ -243,18 +286,30 @@ module Rack
           last_response.status.should eq(401)
         end
 
-        it 'responds with a 401 when there is an authorization header but it is invalid' do
+        it 'responds with a 401 when there is an HMAC authorization header but it is invalid' do
           header 'Authorization', 'HMAC abc:asfkj23asdfkj'
           header 'Date', "Tue, 15 Nov 1994 08:12:31 GMT"
           get '/'
           last_response.status.should eq(401)
         end
 
-        it 'lets the request through when there is a valid authorization header' do
+        it 'lets the request through when there is a valid HMAC authorization header' do
           header 'Authorization', 'HMAC abc:34a70d9901bd447a02157f9fc598e43d6bf5b484'
           header 'Date', http_date
           get '/'
           last_response.status.should eq(200)
+        end
+
+        it 'lets the request through when there is a valid Basic authorization header' do
+          header 'Authorization', "BASIC #{basis_auth_value('abc', 'foo')}"
+          get '/'
+          last_response.status.should eq(200)
+        end
+
+        it 'responds with a 401 when there is a BASIC authorization header but it is invalid' do
+          header 'Authorization', "BASIC #{basis_auth_value('abc', 'foot')}"
+          get '/'
+          last_response.status.should eq(401)
         end
       end
     end

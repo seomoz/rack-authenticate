@@ -4,14 +4,16 @@ require 'time'
 
 module Rack
   module Authenticate
-    class Middleware < ::Rack::Auth::AbstractHandler
+    class Middleware < ::Rack::Auth::Basic
       class Configuration
         def initialize(*args)
           self.timestamp_minute_tolerance ||= 30
-          self.hmac_secret_key { }
+          self.hmac_secret_key { |access_id| }
+          self.basic_auth_validation { |u, p| false }
         end
 
         attr_accessor :timestamp_minute_tolerance
+        attr_reader   :basic_auth_validation_block
 
         def hmac_secret_key(&block)
           @hmac_secret_key_block = block
@@ -20,13 +22,24 @@ module Rack
         def hmac_secret_key_for(access_id)
           @hmac_secret_key_block[access_id]
         end
+
+        def basic_auth_validation(&block)
+          @basic_auth_validation_block = block
+        end
       end
 
-      # TODO: support basic auth
       class Auth < ::Rack::Auth::AbstractRequest
         def initialize(env, configuration = Configuration.new)
           super(env)
           @configuration = configuration
+        end
+
+        def basic?
+          :basic == scheme
+        end
+
+        def hmac?
+          :hmac == scheme
         end
 
         def has_all_required_parts?
@@ -97,23 +110,19 @@ module Rack
       end
 
       def initialize(app)
-        super
         @configuration = Configuration.new
         yield @configuration
+        super(app, &@configuration.basic_auth_validation_block)
       end
 
       def call(env)
         auth = Auth.new(env, @configuration)
         return unauthorized unless auth.provided?
+        return super        if     auth.basic?
+        return bad_request  unless auth.hmac?
         return bad_request  unless auth.has_all_required_parts?
         return unauthorized unless auth.valid?
         @app.call(env)
-      end
-
-    private
-
-      def challenge
-        'HMAC realm="%s"' % realm
       end
     end
   end
