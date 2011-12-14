@@ -10,7 +10,7 @@ module Rack
   describe Authenticate do
     describe "#new_secret_key" do
       it "generates a long random string" do
-        Rack::Authenticate.new_secret_key.should match(/[A-Za-z0-9\\\/]{60,}/)
+        Rack::Authenticate.new_secret_key.should match(/[A-Za-z0-9\\\/\+]{60,}/)
       end
     end
   end
