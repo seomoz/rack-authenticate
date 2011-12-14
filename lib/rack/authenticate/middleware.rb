@@ -5,11 +5,20 @@ require 'time'
 module Rack
   module Authenticate
     class Middleware < ::Rack::Auth::AbstractHandler
-      class Configuration < Struct.new(:hmac_creds, :timestamp_minute_tolerance)
+      class Configuration
         def initialize(*args)
-          super
-          self.hmac_creds ||= {}
           self.timestamp_minute_tolerance ||= 30
+          self.hmac_secret_key { }
+        end
+
+        attr_accessor :timestamp_minute_tolerance
+
+        def hmac_secret_key(&block)
+          @hmac_secret_key_block = block
+        end
+
+        def hmac_secret_key_for(access_id)
+          @hmac_secret_key_block[access_id]
         end
       end
 
@@ -68,7 +77,7 @@ module Rack
         end
 
         def secret_key
-          @configuration.hmac_creds[access_id]
+          @configuration.hmac_secret_key_for(access_id)
         end
 
         def given_digest

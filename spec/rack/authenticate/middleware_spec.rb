@@ -137,7 +137,11 @@ module Rack
         describe "#secret_key" do
           it 'finds the key matching the given access id from the configured creds' do
             basic_env['HTTP_AUTHORIZATION'] = 'HMAC abc:asfkj23asdfkj'
-            auth = Auth.new(basic_env, stub(:hmac_creds => { 'def' => '123456', 'abc' => '654321' }))
+            configuration = Configuration.new
+            configuration.hmac_secret_key do |access_id|
+              { 'def' => '123456', 'abc' => '654321' }[access_id]
+            end
+            auth = Auth.new(basic_env, configuration)
             auth.secret_key.should eq('654321')
           end
         end
@@ -207,7 +211,7 @@ module Rack
           Rack::Builder.new do
             use Rack::ContentLength
             use Rack::Authenticate::Middleware do |config|
-              config.hmac_creds = creds
+              config.hmac_secret_key { |access_id| creds[access_id] }
               config.timestamp_minute_tolerance = 30
             end
 
