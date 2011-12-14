@@ -41,8 +41,7 @@ module Rack
         else
           tolerance = @configuration.timestamp_minute_tolerance * 60
           now = Time.now
-          range = (now - tolerance)..(now + tolerance)
-          return range.include?(timestamp)
+          (now - tolerance) <= timestamp && (now + tolerance) >= timestamp
         end
 
         def has_content?
