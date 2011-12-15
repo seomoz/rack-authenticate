@@ -16,7 +16,8 @@ module Rack
 
       let(:access_id)  { 'my-access-id' }
       let(:secret_key) { 'the-s3cr3t' }
-      subject { Client.new(access_id, secret_key) }
+      let(:options)    { {} }
+      subject { Client.new(access_id, secret_key, options) }
 
       describe "#request_signature_headers" do
         it 'raises an Argument error if given a content type but not content' do
@@ -76,6 +77,13 @@ module Rack
         it 'returns the http date in the headers hash' do
           headers = subject.request_signature_headers("get", "http://foo.com/bar?q=buzz")
           headers.should include('Date' => http_date)
+        end
+
+        it 'returns the http date as the X-Authorization-Date in the headers hash for an ajax client' do
+          options[:ajax] = true
+          headers = subject.request_signature_headers("get", "http://foo.com/bar?q=buzz")
+          headers.keys.should_not include('Date')
+          headers.should include('X-Authorization-Date' => http_date)
         end
 
         context 'when there is no content' do

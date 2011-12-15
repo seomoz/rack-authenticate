@@ -6,13 +6,14 @@ module Rack
   module Authenticate
     class Client
       attr_reader :access_id, :secret_key
-      def initialize(access_id, secret_key)
+      def initialize(access_id, secret_key, options = {})
         @access_id, @secret_key = access_id, secret_key
+        @ajax = options[:ajax]
       end
 
       def request_signature_headers(method, url, content_type = nil, content = nil)
         {}.tap do |headers|
-          headers['Date'] = date = Time.now.httpdate
+          headers[date_header_field] = date = Time.now.httpdate
           request = [method.to_s.upcase, url, date]
 
           if content_md5 = content_md5_for(content_type, content)
@@ -26,6 +27,13 @@ module Rack
       end
 
     private
+
+      def date_header_field
+        # Browsers do not allow javascript to set the Date header when making an AJAX request:
+        #   http://www.w3.org/TR/XMLHttpRequest/#the-setrequestheader-method
+        # Thus, we allow the custom X-Authorization-Date header to be used instead of Date.
+        @ajax ? 'X-Authorization-Date' : 'Date'
+      end
 
       def content_md5_for(content_type, content)
         if content_type.nil? && content.nil?

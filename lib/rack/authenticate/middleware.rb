@@ -56,10 +56,6 @@ module Rack
           @request ||= ::Rack::Request.new(@env)
         end unless method_defined?(:request)
 
-        def date
-          request.env['HTTP_DATE']
-        end
-
         def valid_current_date?
           timestamp = Time.httpdate(date)
         rescue ArgumentError
@@ -106,6 +102,19 @@ module Rack
           secret_key &&
           valid_current_date? &&
           calculated_digest == given_digest
+        end
+
+      private
+
+        def date
+          @date ||= request.env[date_header_field]
+        end
+
+        def date_header_field
+          # Browsers do not allow javascript to set the Date header when making an AJAX request:
+          #   http://www.w3.org/TR/XMLHttpRequest/#the-setrequestheader-method
+          # Thus, we allow the custom X-Authorization-Date header to be used instead of Date.
+          @date_header_field ||= ['HTTP_X_AUTHORIZATION_DATE', 'HTTP_DATE'].find { |k| request.env.has_key?(k) } || 'HTTP_DATE'
         end
       end
 

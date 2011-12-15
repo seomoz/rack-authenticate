@@ -119,6 +119,21 @@ module Rack
               auth.should_not be_valid_current_date
             end
           end
+
+          it 'uses the X-Authorization-Date header if given in order to support browser AJAX requests' do
+            basic_env['HTTP_DATE'] = (Time.now - 40.minutes).httpdate
+            basic_env['HTTP_X_AUTHORIZATION_DATE'] = Time.now.httpdate
+            auth = Auth.new(basic_env, stub(:timestamp_minute_tolerance => 10))
+            auth.should be_valid_current_date
+
+            Timecop.freeze(base_time - 11.minutes) do
+              auth.should_not be_valid_current_date
+            end
+
+            Timecop.freeze(base_time + 11.minutes) do
+              auth.should_not be_valid_current_date
+            end
+          end
         end
 
         describe "#has_all_required_parts?" do
@@ -307,6 +322,13 @@ module Rack
           last_response.status.should eq(200)
         end
 
+        it 'allows an HMAC-authorized request to use the custom X-Authorization-Date header to handle browers that cannot override a Date header on an AJAX request' do
+          header 'Authorization', 'HMAC abc:34a70d9901bd447a02157f9fc598e43d6bf5b484'
+          header 'X-Authorization-Date', http_date
+          get '/'
+          last_response.status.should eq(200)
+        end
+
         it 'lets the request through when there is a valid Basic authorization header' do
           header 'Authorization', "BASIC #{basis_auth_value('abc', 'foo')}"
           get '/'
@@ -321,6 +343,17 @@ module Rack
 
         it 'generates the same signature as the client', :no_timecop do
           client = Client.new('abc', hmac_auth_creds['abc'])
+          client.request_signature_headers('post', 'http://example.org/foo', 'text/plain', "some content").each do |key, value|
+            header key, value
+          end
+
+          header 'Content-Type', 'text/plain'
+          post '/foo', "some content"
+          last_response.status.should eq(200)
+        end
+
+        it 'generates the same signature as an AJAX client', :no_timecop do
+          client = Client.new('abc', hmac_auth_creds['abc'], :ajax => true)
           client.request_signature_headers('post', 'http://example.org/foo', 'text/plain', "some content").each do |key, value|
             header key, value
           end
