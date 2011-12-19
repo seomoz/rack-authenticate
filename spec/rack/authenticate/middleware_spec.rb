@@ -85,16 +85,14 @@ module Rack
             Auth.new(basic_env).canonicalized_request
           end
 
-          it 'includes the content MD5 and Type when they are present' do
+          it 'includes the content MD5 when it is present' do
             basic_env['CONTENT_LENGTH'] = '10'
             basic_env['HTTP_CONTENT_MD5'] = content_md5
-            basic_env['CONTENT_TYPE'] = 'text/plain'
 
             Auth.new(basic_env).canonicalized_request.split("\n").should eq([
               'GET',
               'http://example.org/foo/bar',
               http_date,
-              'text/plain',
               content_md5
             ])
           end
@@ -155,19 +153,12 @@ module Rack
           context 'for a request with a body' do
             let(:env) { basic_env.merge('CONTENT_LENGTH' => '10') }
 
-            it 'returns true if it has a content type and content MD5' do
+            it 'returns true if it has a content MD5' do
               basic_env['HTTP_CONTENT_MD5'] = content_md5
-              basic_env['CONTENT_TYPE'] = 'text/plain'
               should have_all_required_parts
             end
 
             it 'returns false if it lacks the content md5 header' do
-              basic_env['CONTENT_TYPE'] = 'text/plain'
-              should_not have_all_required_parts
-            end
-
-            it 'returns false if it lacks the content type header' do
-              basic_env['HTTP_CONTENT_MD5'] = content_md5
               should_not have_all_required_parts
             end
           end
@@ -349,7 +340,7 @@ module Rack
 
         it 'generates the same signature as the client', :no_timecop do
           client = Client.new('abc', hmac_auth_creds['abc'])
-          client.request_signature_headers('post', 'http://example.org/foo', 'text/plain', "some content").each do |key, value|
+          client.request_signature_headers('post', 'http://example.org/foo', "some content").each do |key, value|
             header key, value
           end
 
@@ -360,7 +351,7 @@ module Rack
 
         it 'generates the same signature as an AJAX client', :no_timecop do
           client = Client.new('abc', hmac_auth_creds['abc'], :ajax => true)
-          client.request_signature_headers('post', 'http://example.org/foo', 'text/plain', "some content").each do |key, value|
+          client.request_signature_headers('post', 'http://example.org/foo', "some content").each do |key, value|
             header key, value
           end
 

@@ -20,18 +20,6 @@ module Rack
       subject { Client.new(access_id, secret_key, options) }
 
       describe "#request_signature_headers" do
-        it 'raises an Argument error if given a content type but not content' do
-          expect {
-            subject.request_signature_headers("get", "http://foo.com/", "text/plain", nil)
-          }.to raise_error(ArgumentError)
-        end
-
-        it 'raises an Argument error if given a content but no content type' do
-          expect {
-            subject.request_signature_headers("get", "http://foo.com/", nil, "content")
-          }.to raise_error(ArgumentError)
-        end
-
         it 'returns the auth header using the HMAC digest' do
           HMAC::SHA1.stub(:hexdigest => 'the-hex-digest')
           headers = subject.request_signature_headers("get", "http://foo.com/")
@@ -108,23 +96,23 @@ module Rack
           end
 
           it 'returns the Content-MD5 header in the headers hash' do
-            headers = subject.request_signature_headers("get", "http://foo.com/bar?q=buzz", "text/plain", "content")
+            headers = subject.request_signature_headers("get", "http://foo.com/bar?q=buzz", "content")
             headers.should include('Content-MD5' => content_md5)
           end
 
           it 'generates the Content-MD5 based on the content' do
             Digest::MD5.should_receive(:hexdigest).with("content")
-            subject.request_signature_headers("get", "http://foo.com/bar?q=buzz", "text/plain", "content")
+            subject.request_signature_headers("get", "http://foo.com/bar?q=buzz", "content")
           end
 
-          it 'uses the content type and content md5 in the digest' do
+          it 'uses the content md5 in the digest' do
             HMAC::SHA1.should_receive(:hexdigest) do |key, request|
               parts = request.split("\n")
-              parts.should have(5).parts
-              parts.last(2).should eq(['text/plain', 'the-content-md5'])
+              parts.should have(4).parts
+              parts.last.should eq('the-content-md5')
             end
 
-            subject.request_signature_headers("get", "http://foo.com/bar?q=buzz", "text/plain", "content")
+            subject.request_signature_headers("get", "http://foo.com/bar?q=buzz", "content")
           end
         end
       end

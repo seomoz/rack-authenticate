@@ -11,14 +11,15 @@ module Rack
         @ajax = options[:ajax]
       end
 
-      def request_signature_headers(method, url, content_type = nil, content = nil)
+      def request_signature_headers(method, url, content = nil)
         {}.tap do |headers|
           headers[date_header_field] = date = Time.now.httpdate
           request = [method.to_s.upcase, url, date]
 
-          if content_md5 = content_md5_for(content_type, content)
+          if content
+            content_md5 = Digest::MD5.hexdigest(content)
             headers['Content-MD5'] = content_md5
-            request += [content_type, content_md5]
+            request << content_md5
           end
 
           digest = HMAC::SHA1.hexdigest(secret_key, request.join("\n"))
@@ -33,16 +34,6 @@ module Rack
         #   http://www.w3.org/TR/XMLHttpRequest/#the-setrequestheader-method
         # Thus, we allow the custom X-Authorization-Date header to be used instead of Date.
         @ajax ? 'X-Authorization-Date' : 'Date'
-      end
-
-      def content_md5_for(content_type, content)
-        if content_type.nil? && content.nil?
-          # no-op
-        elsif content_type && content
-          Digest::MD5.hexdigest(content)
-        else
-          raise ArgumentError.new("Both content_type and content must be given or neither.")
-        end
       end
     end
   end

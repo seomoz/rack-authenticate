@@ -54,7 +54,7 @@ module Rack
           return false unless date
 
           if has_content?
-            content_md5.to_s != '' && request.content_type.to_s != ''
+            content_md5.to_s != ''
           else
             true
           end
@@ -85,7 +85,7 @@ module Rack
 
         def canonicalized_request
           parts = [ request.request_method, request.url, date ]
-          parts += [ request.content_type, content_md5 ] if has_content?
+          parts << content_md5 if has_content?
           parts.join("\n")
         end
 
