@@ -2,6 +2,7 @@ require 'timecop'
 require 'rack/authenticate/middleware'
 require 'rack/authenticate/client'
 require 'rack/test'
+require 'stringio'
 
 RSpec.configure do |c|
   c.treat_symbols_as_metadata_keys_with_true_values = true
@@ -15,9 +16,128 @@ class Integer
   end
 end
 
+shared_examples_for "an IO-like object" do
+  let(:original_string) { "a line\nand another one\nand a third one" }
+  subject { io_for(original_string) }
+
+  specify '#gets returns individual lines and then returns nil' do
+    subject.gets.should eq("a line\n")
+    subject.gets.should eq("and another one\n")
+    subject.gets.should eq("and a third one")
+    subject.gets.should be_nil
+    subject.gets.should be_nil
+  end
+
+  specify "#each yields each line, then yields nothing when called again" do
+    lines = []
+    subject.each { |l| lines << l }
+    lines.should eq(["a line\n", "and another one\n", "and a third one"])
+
+    lines = []
+    subject.each { |l| lines << l }
+    lines.should eq([])
+  end
+
+  describe "#read" do
+    it 'returns the entire string if called with no arguments, then returns a blank string' do
+      subject.read.should eq(original_string)
+      subject.read.should eq("")
+    end
+
+    it 'returns the number of bytes specified' do
+      subject.read(5).should eq("a lin")
+      subject.read(6).should eq("e\nand ")
+    end
+
+    it 'returns the entire string if the number of bytes given is larger than the string, then returns nil' do
+      subject.read(50).should eq(original_string)
+      subject.read(50).should be_nil
+    end
+
+    it 'replaces the given string buffer' do
+      buffer = ''
+      subject.read(5, buffer)
+      buffer.should eq("a lin")
+
+      subject.read(nil, buffer)
+      buffer.should eq("e\nand another one\nand a third one")
+
+      subject.read(nil, buffer)
+      buffer.should eq("")
+    end
+  end
+end
+
+describe StringIO do
+  it_behaves_like "an IO-like object" do
+    def io_for(string)
+      StringIO.new(string)
+    end
+  end
+end
+
+describe File do
+  it_behaves_like "an IO-like object" do
+    let(:dir) { './tmp/files' }
+
+    before(:each) do
+      # ensure the directory is empty
+      FileUtils.rm_rf dir
+      FileUtils.mkdir_p dir
+    end
+
+    let(:files) { [] }
+
+    def io_for(string)
+      File.open("#{dir}/io_file.txt", 'w') { |f| f.write(string) }
+      File.open("#{dir}/io_file.txt").tap { |f| files << f }
+    end
+
+    after(:each) do
+      files.each { |f| f.close }
+    end
+  end
+end
+
 module Rack
   module Authenticate
     class Middleware
+      describe RequestBodyProxy do
+        it_behaves_like 'an IO-like object' do
+          def io_for(string)
+            md5 = Digest::MD5.hexdigest(string)
+            RequestBodyProxy.new(StringIO.new(string), md5)
+          end
+
+          context "when given an invalid MD5" do
+            let(:invalid_md5) { Digest::MD5.hexdigest("some other string") }
+            subject { RequestBodyProxy.new(StringIO.new(original_string), invalid_md5) }
+
+            specify "#gets throws :invalid_content_md5 when the string has been completely read" do
+              subject.gets.should eq("a line\n")
+              subject.gets.should eq("and another one\n")
+              expect { subject.gets }.to throw_symbol(:invalid_content_md5)
+            end
+
+            specify "#each throws :invalid_content_md5 when the string has been completely read" do
+              lines = []
+
+              expect {
+                subject.each { |l| lines << l }
+              }.to throw_symbol(:invalid_content_md5)
+
+              lines.should eq(["a line\n", "and another one\n"])
+            end
+
+            describe "#read" do
+              it 'throws :invalid_content_md5 when the entire string is read' do
+                expect { subject.read }.to throw_symbol(:invalid_content_md5)
+              end
+            end
+          end
+        end
+      end
+
       shared_context 'http_date' do
         let(:http_date) { "Tue, 15 Nov 1994 08:12:31 GMT" }
         let(:base_time) { Time.httpdate(http_date) }

@@ -36,6 +36,56 @@ module Rack
         end
       end
 
+      class RequestBodyProxy
+        def initialize(input, md5)
+          @input, @md5 = input, md5
+          @total_input, @eof = '', false
+          @next_line = nil
+        end
+
+        def gets
+          return nil if eof?
+
+          unless @next_line
+            @next_line = @input.gets
+            @total_input << @next_line
+          end
+
+          this_line, @next_line = @next_line, @input.gets
+          @next_line ? @total_input << @next_line : eof!
+          this_line
+        end
+
+        def read(*args)
+          if eof?
+            ''
+          elsif args.none?
+            @total_input = @input.read(*args)
+            eof!
+            @total_input
+          else
+            @input.read(*args)
+          end
+        end
+
+        def each
+          while line = gets
+            yield line
+          end
+        end
+
+      private
+
+        def eof?
+          @eof
+        end
+
+        def eof!
+          @eof = true
+          throw :invalid_content_md5 unless @md5 == Digest::MD5.hexdigest(@total_input)
+        end
+      end
+
       class Auth < ::Rack::Auth::AbstractRequest
         def initialize(env, configuration = Configuration.new)
           super(env)
