@@ -130,8 +130,14 @@ module Rack
             end
 
             describe "#read" do
-              it 'throws :invalid_content_md5 when the entire string is read' do
+              it 'throws :invalid_content_md5 when the entire string is read in a single call' do
                 expect { subject.read }.to throw_symbol(:invalid_content_md5)
+              end
+
+              it 'throws :invalid_content_md5 when the entire string is read through several separate calls' do
+                subject.read(11).should eq("a line\nand ")
+                subject.read(26).should eq("another one\nand a third on")
+                expect { subject.read(1) }.to throw_symbol(:invalid_content_md5)
               end
             end
           end

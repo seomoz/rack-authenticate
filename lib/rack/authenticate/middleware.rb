@@ -40,7 +40,7 @@ module Rack
         def initialize(input, md5)
           @input, @md5 = input, md5
           @total_input, @eof = '', false
-          @next_line = nil
+          @next_line, @next_byte = nil, ''
         end
 
         def gets
@@ -63,7 +63,15 @@ module Rack
             @total_input = @input.read(*args)
             eof!
             @total_input
-          else
+          elsif args.size == 1 # length
+            length = args.first
+            bytes_to_read = @next_byte.size.zero? ? length : length + 1
+            section = @input.read(bytes_to_read)
+            (@next_byte + section[0..-2]).tap do |string|
+              @next_byte = section[-1]
+              @total_input << string
+            end
+          else # length, buffer
             @input.read(*args)
           end
         end
