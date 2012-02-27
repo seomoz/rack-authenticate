@@ -59,9 +59,20 @@ module Rack
         last_response.headers.should include('Access-Control-Allow-Origin' => origin)
       end
 
+      it 'appends the Access-Control-Allow-Credentials header to every response to a request with an Origin header' do
+        header 'Origin', origin
+        get '/'
+        last_response.headers.should include('Access-Control-Allow-Credentials' => 'true')
+      end
+
       it 'does not append a Access-Control-Allow-Origin header to a request without an Origin header' do
         get '/'
         last_response.headers.keys.should_not include('Access-Control-Allow-Origin')
+      end
+
+      it 'does not append a Access-Control-Allow-Credentials header to a request without an Origin header' do
+        get '/'
+        last_response.headers.keys.should_not include('Access-Control-Allow-Credentials')
       end
     end
   end

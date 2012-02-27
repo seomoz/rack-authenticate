@@ -14,7 +14,10 @@ module Rack
           @app.call(env)
         end
 
-        headers['Access-Control-Allow-Origin'] = env['HTTP_ORIGIN'] if env.has_key?('HTTP_ORIGIN')
+        if env.has_key?('HTTP_ORIGIN')
+          headers['Access-Control-Allow-Origin'] = env['HTTP_ORIGIN']
+          headers['Access-Control-Allow-Credentials'] = 'true'
+        end
 
         [status, headers, body]
       end
