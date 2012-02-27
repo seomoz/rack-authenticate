@@ -359,43 +359,6 @@ module Rack
           post '/foo', "some content"
           last_response.status.should eq(200)
         end
-
-        context 'when cross origin resource sharing is supported' do
-          before { configure { |c| c.support_cross_origin_resource_sharing = true } }
-          let(:headers) { 'X-Authorization-Date, Content-MD5, Authorization, Content-Type' }
-          let(:origin)  { 'http://foo.example.com' }
-
-          let(:expected_response_headers) do {
-            'Content-Type'                     => 'text/plain',
-            'Access-Control-Allow-Origin'      => origin,
-            'Access-Control-Allow-Methods'     => 'PUT',
-            'Access-Control-Allow-Credentials' => 'true',
-            'Access-Control-Max-Age'           => CORSMiddleware::ACCESS_CONTROL_MAX_AGE.to_s
-          } end
-
-          it 'responds to a CORS OPTIONS request with all of the correct headers' do
-            header 'Origin', origin
-            header 'Access-Control-Request-Method', 'PUT'
-            options '/'
-
-            last_response.status.should eq(200)
-            last_response.headers.should include(expected_response_headers)
-            last_response.headers.should_not have_key('Access-Control-Allow-Headers')
-          end
-        end
-
-        context 'when cross origin resource sharing is not supported' do
-          before { configure { |c| c.support_cross_origin_resource_sharing = false } }
-
-          it 'does not respond to a CORS OPTIONS request' do
-            header 'Origin', 'http://foo.example.com'
-            header 'Access-Control-Request-Method', 'PUT'
-            options '/'
-
-            last_response.status.should eq(401)
-            last_response.headers.keys.select { |k| k.include?('Access-Control') }.should eq([])
-          end
-        end
       end
     end
   end

@@ -10,11 +10,9 @@ module Rack
           self.timestamp_minute_tolerance ||= 30
           self.hmac_secret_key { |access_id| }
           self.basic_auth_validation { |u, p| false }
-          self.support_cross_origin_resource_sharing = false
         end
 
         attr_accessor :timestamp_minute_tolerance
-        attr_writer   :support_cross_origin_resource_sharing
         attr_reader   :basic_auth_validation_block
 
         def hmac_secret_key(&block)
@@ -27,10 +25,6 @@ module Rack
 
         def basic_auth_validation(&block)
           @basic_auth_validation_block = block
-        end
-
-        def support_cross_origin_resource_sharing?
-          @support_cross_origin_resource_sharing
         end
       end
 
@@ -127,30 +121,13 @@ module Rack
       def initialize(app)
         @configuration = Configuration.new
         yield @configuration
-
-        @middleware_stack = lambda do |env|
-          auth = Auth.new(env, @configuration)
-          _call(env, auth)
-        end
-
-        if @configuration.support_cross_origin_resource_sharing?
-          require 'rack/authenticate/cors_middleware'
-          @middleware_stack = ::Rack::Authenticate::CORSMiddleware.new(@middleware_stack)
-        end
-
         super(app, &@configuration.basic_auth_validation_block)
       end
 
-      alias basic_auth_call call
       def call(env)
-        @middleware_stack.call(env)
-      end
-
-    private
-
-      def _call(env, auth)
+        auth = Auth.new(env, @configuration)
         return unauthorized unless auth.provided?
-        return basic_auth_call(env) if auth.basic?
+        return super(env) if auth.basic?
         return bad_request  unless auth.hmac?
         return bad_request  unless auth.has_all_required_parts?
         return unauthorized unless auth.valid?
