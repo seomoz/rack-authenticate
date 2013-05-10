@@ -35,11 +35,11 @@ module Rack
         end
 
         def basic?
-          :basic == scheme
+          scheme.to_s == 'basic'
         end
 
         def hmac?
-          :hmac == scheme
+          scheme.to_s == 'hmac'
         end
 
         def has_all_required_parts?
